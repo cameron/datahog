@@ -18,6 +18,9 @@ class ReadOnly(Exception):
 class BadContext(Exception):
     pass
 
+class MissingContext(Exception):
+    pass
+
 class MissingParent(Exception):
     pass
 

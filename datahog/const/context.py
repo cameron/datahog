@@ -69,10 +69,13 @@ def set_context(value, tbl, meta=None):
             ctxkey = '%s_ctx' % (rel,)
             if ctxkey not in meta:
                 continue
-
-            if meta[ctxkey] not in META:
-                raise ValueError("related %s context %d doesn't exist" %
-                        (rel, meta[ctxkey]))
+    
+            ctxs = isinstance(meta[ctxkey], set) and \
+                   meta[ctxkey] or [meta[ctxkey]]
+            for ctx in ctxs:
+                if ctx not in META:
+                    raise ValueError("related %s context %d doesn't exist" %
+                            (rel, ctx))
 
         if meta.get('storage', storage.NULL) not in storage.ALL:
             raise ValueError("unrecognized storage type: %d" % meta['storage'])

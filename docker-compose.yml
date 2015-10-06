@@ -1,0 +1,11 @@
+db:
+  build: ./schema
+  ports:
+    - "6543:5432"
+  volumes_from:
+    - data
+
+data:
+  image: postgres
+  volumes:
+    - /var/li/postgresql/9.3/main

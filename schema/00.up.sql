@@ -1,7 +1,8 @@
 
 --create extension if not exists fuzzystrmatch;
 
-create sequence node_ids maxvalue %(max)d start with %(start)d;
+-- hard-coded 56 bit id range...
+create sequence node_ids maxvalue 72057594037927935 start with 1; 
 
 
 -- PROPERTIES --
@@ -53,13 +54,19 @@ create unique index alias_lookup_uniq on alias_lookup (
 
 create table relationship (
   base_id bigint not null,
+  base_ctx smallint not null,
   flags smallint default 0 not null,
   time_removed timestamp default null,
   rel_id bigint not null,
+  rel_ctx smallint not null,
   ctx smallint not null,
   pos int not null,
   forward bool not null
 );
+
+create index relationship_union_forward on relationship (
+  base_id, ctx, rel_ctx
+) where time_removed is null and forward=true;
 
 create unique index relationship_uniq_forward on relationship (
   base_id, ctx, rel_id
@@ -68,6 +75,10 @@ create unique index relationship_uniq_forward on relationship (
 create index relationship_forward_idx on relationship (
   base_id, ctx, pos
 ) where time_removed is null and forward=true;
+
+create index relationship_union_backward on relationship (
+  rel_id, ctx, base_ctx
+) where time_removed is null and forward=false;
 
 create unique index relationship_uniq_backward on relationship (
   rel_id, ctx, base_id

@@ -10,8 +10,7 @@ from ..db import query, txn
 __all__ = ['create', 'list', 'get', 'set_flags', 'shift', 'remove']
 
 
-def create(pool, ctx, base_id, rel_id, forward_index=None, reverse_index=None,
-        flags=None, timeout=None):
+def create(pool, ctx, base_id, rel_id, base_ctx=None, rel_ctx=None, forward_index=None, reverse_index=None, flags=None, timeout=None):
     '''make a new relationship between two id objects
 
     :param ConnectionPool pool:
@@ -23,6 +22,10 @@ def create(pool, ctx, base_id, rel_id, forward_index=None, reverse_index=None,
     :param int base_id: the id of the first related object
 
     :param int rel_id: the id of the other related object
+
+    :param int base_ctx: for union rels, the ctx of the first related object
+
+    :param int rel_ctx: for union rels, the ctx of the other related object
 
     :param int forward_index:
         insert the new forward relationship into position ``index`` for the
@@ -63,15 +66,24 @@ def create(pool, ctx, base_id, rel_id, forward_index=None, reverse_index=None,
     if pool.readonly:
         raise error.ReadOnly()
 
+    ctx_base_ctx = util.ctx_base_ctx(ctx)
+    ctx_rel_ctx = util.ctx_rel_ctx(ctx)
+    for arg_ctx, ctx_ctx in ((base_ctx, ctx_base_ctx), (rel_ctx, ctx_rel_ctx)):
+        if isinstance(ctx_ctx, set) and not arg_ctx:
+            raise error.MissingContext('Specify base_ctx and rel_ctx to create a union (ctx: %s) relation.' % ctx)
+
+    base_ctx = base_ctx or ctx_base_ctx
+    rel_ctx = rel_ctx or ctx_rel_ctx
+
     if (util.ctx_tbl(ctx) != table.RELATIONSHIP
-            or util.ctx_base_ctx(ctx) is None
-            or util.ctx_rel_ctx(ctx) is None):
+            or base_ctx is None
+            or rel_ctx is None):
         raise error.BadContext(ctx)
 
     flags = util.flags_to_int(ctx, flags or [])
 
-    return txn.create_relationship_pair(pool, base_id, rel_id, ctx,
-            forward_index, reverse_index, flags, timeout)
+    return txn.create_relationship_pair(pool, base_id, base_ctx, rel_id, rel_ctx, ctx,
+                                        forward_index, reverse_index, flags, timeout)
 
 
 def list(pool, id, ctx, forward=True, limit=100, start=0, timeout=None):

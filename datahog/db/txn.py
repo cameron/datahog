@@ -388,17 +388,17 @@ def _remove_alias(pool, base_id, ctx, alias, timer):
     return True
 
 
-def create_relationship_pair(pool, base_id, rel_id, ctx, forw_idx, rev_idx,
-        flags, timeout):
+def create_relationship_pair(pool, base_id, base_ctx, rel_id, rel_ctx, ctx, forw_idx, rev_idx,
+       flags, timeout):
     timer = Timer(pool, timeout, None)
     if timeout is None:
         return _create_relationship_pair(
-                pool, base_id, rel_id, ctx, forw_idx, rev_idx, flags, timer)
+                pool, base_id, base_ctx, rel_id, rel_ctx, ctx, forw_idx, rev_idx, flags, timer)
     with timer:
         return _create_relationship_pair(
-                pool, base_id, rel_id, ctx, forw_idx, rev_idx, flags, timer)
+                pool, base_id, base_ctx, rel_id, rel_ctx, ctx, forw_idx, rev_idx, flags, timer)
 
-def _create_relationship_pair(pool, base_id, rel_id, ctx, forw_idx, rev_idx,
+def _create_relationship_pair(pool, base_id, base_ctx, rel_id, rel_ctx, ctx, forw_idx, rev_idx,
         flags, timer):
     tpc = TwoPhaseCommit(pool, pool.shard_by_id(base_id),
             'create_relationship_pair', (base_id, rel_id, ctx))
@@ -406,15 +406,14 @@ def _create_relationship_pair(pool, base_id, rel_id, ctx, forw_idx, rev_idx,
         with tpc as conn:
             timer.conn = conn
             try:
-                inserted = query.insert_relationship(conn.cursor(), base_id,
-                        rel_id, ctx, True, forw_idx, flags)
+                inserted = query.insert_relationship(conn.cursor(), base_id, base_ctx,
+                        rel_id, rel_ctx, ctx, True, forw_idx, flags)
             finally:
                 timer.conn = None
 
             if not inserted:
                 tpc.fail()
 
-                base_ctx = util.ctx_base_ctx(ctx)
                 base_tbl = table.NAMES[util.ctx_tbl(base_ctx)]
                 raise error.NoObject("%s<%d/%d>" %
                         (base_tbl, base_ctx, base_id))
@@ -431,14 +430,13 @@ def _create_relationship_pair(pool, base_id, rel_id, ctx, forw_idx, rev_idx,
                 timer.conn = conn
                 try:
                     inserted = query.insert_relationship(conn.cursor(),
-                            base_id, rel_id, ctx, False, rev_idx, flags)
+                            base_id, base_ctx, rel_id, rel_ctx, ctx, False, rev_idx, flags)
                 finally:
                     timer.conn = None
 
                 if not inserted:
                     tpc.fail()
 
-                    rel_ctx = util.ctx_rel_ctx(ctx)
                     rel_tbl = table.NAMES[util.ctx_tbl(rel_ctx)]
                     raise error.NoObject("%s<%d/%d>" %
                             (rel_tbl, rel_ctx, rel_id))

@@ -485,21 +485,23 @@ returning value, ctx
     return cursor.fetchall()
 
 
-def insert_relationship(cursor, base_id, rel_id, ctx, forward, index, flags):
+def insert_relationship(cursor, base_id, base_ctx, rel_id, rel_ctx, ctx, forward, index, flags):
     if forward:
-        id_tbl, id_ctx = util.ctx_base(ctx)
         id = base_id
         id_col = 'base_id'
+        id_ctx = base_ctx
+        id_tbl = util.ctx_tbl(id_ctx)
     else:
-        id_tbl, id_ctx = util.ctx_rel(ctx)
         id = rel_id
         id_col = 'rel_id'
+        id_ctx = rel_ctx
+        id_tbl = util.ctx_tbl(id_ctx)
     id_tbl = table.NAMES[id_tbl]
 
     if index is None:
         cursor.execute("""
-insert into relationship (base_id, rel_id, ctx, forward, pos, flags)
-select %%s, %%s, %%s, %%s, (
+insert into relationship (base_id, base_ctx, rel_id, rel_ctx, ctx, forward, pos, flags)
+select %%s, %%s, %%s, %%s, %%s, %%s, (
     select count(*)
     from relationship
     where
@@ -518,7 +520,7 @@ where exists (
 )
 returning 1
 """ % (id_col, id_tbl), (
-        base_id, rel_id, ctx, forward,
+        base_id, base_ctx, rel_id, rel_ctx, ctx, forward,
         id, ctx, forward,
         flags,
         id, id_ctx))
@@ -543,13 +545,13 @@ with eligible as (
         and ctx=%%s
         and pos >= %%s
 )
-insert into relationship (base_id, rel_id, ctx, forward, pos, flags)
+insert into relationship (base_id, base_ctx, rel_id, rel_ctx, ctx, forward, pos, flags)
 select %%s, %%s, %%s, %%s, %%s, %%s
 where exists (select 1 from eligible)
 returning 1
 """ % (id_tbl, id_col), (id, id_ctx,
             forward, id, ctx, index,
-            base_id, rel_id, ctx, forward, index, flags))
+            base_id, base_ctx, rel_id, rel_ctx, ctx, forward, index, flags))
 
     return cursor.rowcount
 
@@ -566,7 +568,7 @@ def select_relationships(cursor, id, ctx, forward, limit, start, other_id=_missi
         params = (id, ctx, forward, start, other_id, limit)
 
     cursor.execute("""
-select %s, flags, pos
+select %s, flags, pos, base_ctx, rel_ctx
 from relationship
 where
     time_removed is null
@@ -584,8 +586,10 @@ limit %%s
             'flags': flags,
             other_name: other_id,
             'ctx': ctx,
+            'base_ctx': base_ctx,
+            'rel_ctx': rel_ctx,
             'pos': pos}
-        for other_id, flags, pos in cursor.fetchall()]
+        for other_id, flags, pos, base_ctx, rel_ctx in cursor.fetchall()]
 
 
 def remove_relationship(cursor, base_id, rel_id, ctx, forward):
