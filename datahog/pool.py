@@ -277,12 +277,12 @@ class ConnectionPool(object):
 
     def _try_conn(self, info):
         try:
-            return psycopg2.connect(
+            return PsycoConn(psycopg2.connect(
                     host=info['host'],
                     port=info['port'],
                     user=info['user'],
                     password=info['password'],
-                    database=info['database'])
+                    database=info['database']))
         except psycopg2.OperationalError:
             return None
 
@@ -300,6 +300,26 @@ class ConnectionPool(object):
             if conn is not None:
                 self._conns[shard['shard']].put(conn)
             done.set()
+
+class PsycoConn(object):
+    def __init__(self, conn):
+        self.conn = conn
+
+    def __getattr__(self, k):
+        if k == 'conn':
+            return self.conn
+        return getattr(self.conn, k)
+
+    def __enter__(self):
+        self.conn.__enter__()
+        return self
+
+    def __exit__(self, *args):
+        try:
+            self.conn.__exit__(*args)
+        except psycopg2.InterfaceError:
+            pass
+        return self
 
 
 if greenhouse:
