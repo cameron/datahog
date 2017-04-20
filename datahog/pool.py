@@ -301,6 +301,7 @@ class ConnectionPool(object):
                 self._conns[shard['shard']].put(conn)
             done.set()
 
+
 class PsycoConn(object):
     def __init__(self, conn):
         self.conn = conn
@@ -314,11 +315,13 @@ class PsycoConn(object):
         self.conn.__enter__()
         return self
 
-    def __exit__(self, *args):
+    def __exit__(self, exc, *args):
+        if exc:
+            return
         try:
-            self.conn.__exit__(*args)
-        except psycopg2.InterfaceError:
-            pass
+            self.conn.__exit__(exc, *args)
+        except psycopg2.InterfaceError as e:
+            print e.message
         return self
 
 

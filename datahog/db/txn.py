@@ -557,6 +557,7 @@ def create_node(pool, base_id, ctx, value, index, flags, timeout):
     with pool.get_by_shard(shard, timeout=timeout) as conn:
         cursor = conn.cursor()
         node = query.insert_node(cursor, base_id, ctx, value, flags)
+
         if node is None:
             return None
 

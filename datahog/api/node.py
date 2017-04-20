@@ -65,7 +65,7 @@ def create(pool, ctx, value, base_id=None, index=None, flags=None, timeout=None)
         raise error.ReadOnly()
 
     base_ctx = util.ctx_base_ctx(ctx)
-    if util.ctx_tbl(ctx) != table.NODE:
+    if base_ctx is not None and util.ctx_tbl(ctx) != table.NODE:
         raise error.BadContext(ctx)
 
     if base_ctx is not None and base_id is None:
@@ -77,7 +77,7 @@ def create(pool, ctx, value, base_id=None, index=None, flags=None, timeout=None)
     node = txn.create_node(pool, base_id, ctx, value, index, flags, timeout)
 
     if node is None:
-        raise error.NoObject("node<%d/%r>" % (base_ctx, base_id))
+        raise error.NoObject("node<%s%s>" % (base_ctx or '', base_id or ''))
 
     node['flags'] = util.int_to_flags(ctx, node['flags'])
     node['value'] = util.storage_unwrap(ctx, node['value'])

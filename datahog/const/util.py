@@ -177,9 +177,10 @@ def storage_unwrap(ctx, value):
 
     if st == storage.SERIAL:
         schema = ctx_schema(ctx)
-        value = mummy.loads(value)
         if schema:
-            value = schema.loads(mummy.loads(value))
+            value = schema.loads(value).message
+        else:
+            value = mummy.loads(value)
 
     return value
 

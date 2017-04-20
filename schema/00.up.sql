@@ -1,7 +1,9 @@
 
 --create extension if not exists fuzzystrmatch;
 
-create sequence node_ids maxvalue %(max)d start with %(start)d;
+-- TODO somehow travis's plans got screwed up -- hardcoding maxvalue here implies
+-- something about shardbits as configured in the datahog client
+create sequence node_ids maxvalue 18014398509481983 start with 0;
 
 
 -- PROPERTIES --
