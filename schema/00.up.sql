@@ -53,6 +53,7 @@ create unique index alias_lookup_uniq on alias_lookup (
 
 -- RELATIONSHIPS --
 
+# TODO rename: relationship -> edge, edge -> branch
 create table relationship (
   base_id bigint not null,
   flags smallint default 0 not null,
@@ -96,6 +97,7 @@ create unique index node_id on node (
   id
 ) where time_removed is null;
 
+# TODO edge -> branch
 create table edge (
   base_id bigint not null,
   time_removed timestamp default null,

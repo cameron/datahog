@@ -64,10 +64,11 @@ def create(pool, ctx, value, base_id=None, index=None, flags=None, timeout=None)
     if pool.readonly:
         raise error.ReadOnly()
 
-    base_ctx = util.ctx_base_ctx(ctx)
-    if base_ctx is not None and util.ctx_tbl(ctx) != table.NODE:
+
+    if util.ctx_tbl(ctx) != table.NODE:
         raise error.BadContext(ctx)
 
+    base_ctx = util.ctx_base_ctx(ctx)
     if base_ctx is not None and base_id is None:
         raise error.MissingParent()
 
@@ -326,9 +327,7 @@ def update(pool, node_id, ctx, value, old_value=_missing, timeout=None):
     if pool.readonly:
         raise error.ReadOnly()
 
-    if (util.ctx_tbl(ctx) != table.NODE
-            or util.ctx_base_ctx(ctx) is None
-            or util.ctx_storage(ctx) is None):
+    if (util.ctx_tbl(ctx) != table.NODE or util.ctx_storage(ctx) is None):
         raise error.BadContext(ctx)
 
     value = util.storage_wrap(ctx, value)
