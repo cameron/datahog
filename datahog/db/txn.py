@@ -461,6 +461,10 @@ def set_relationship_flags(pool, base_id, rel_id, ctx, add, clear, timeout):
 def _set_relationship_flags(pool, base_id, rel_id, ctx, add, clear, timer):
     tpc = TwoPhaseCommit(pool, pool.shard_by_id(base_id),
             'set_relationship_flags', (base_id, rel_id, ctx, add, clear))
+
+    # hacks for undirected rels
+    directed = util.ctx_directed(ctx)
+
     try:
         with tpc as conn:
             timer.conn = conn
@@ -485,10 +489,13 @@ def _set_relationship_flags(pool, base_id, rel_id, ctx, add, clear, timer):
         with pool.get_by_id(rel_id) as conn:
             timer.conn = conn
             try:
+                where = {'base_id': base_id, 'rel_id': rel_id, 'ctx': ctx,
+                         'forward': False }
+                if not directed:
+                    where = {'base_id': rel_id, 'rel_id': base_id, 'ctx': ctx,
+                             'forward': True }
                 result = query.set_flags(
-                        conn.cursor(), 'relationship', add, clear,
-                        {'base_id': base_id, 'rel_id': rel_id, 'ctx': ctx,
-                            'forward': False})
+                        conn.cursor(), 'relationship', add, clear, where)
             finally:
                 timer.conn = None
 

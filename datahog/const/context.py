@@ -36,6 +36,13 @@ def set_context(value, tbl, meta=None):
                 its ``rel_id``. applies when ``tbl`` is
                 ``table.RELATIONSHIP``.
 
+            directed
+                defaults to True. when False, all relationship rows will be
+                created as if they were the forward half of the pair, with
+                ``base_id`` holding the id of the node on the same shard, and 
+                ``rel_id`` holding the id of the node on the "other" (possibly
+                same) shard
+
             storage
                 defines behavior of the int/str storage columns. must be one of
                 ``NULL``, ``INT``, ``STR``, ``UTF``, ``SERIAL``. applies when

@@ -494,7 +494,12 @@ def insert_relationship(cursor, base_id, rel_id, ctx, forward, index, flags):
         id_tbl, id_ctx = util.ctx_rel(ctx)
         id = rel_id
         id_col = 'rel_id'
-    id_tbl = table.NAMES[id_tbl]
+
+    directed = util.ctx_directed(ctx) 
+    if not directed and not forward:
+        base_id, rel_id = rel_id, base_id
+        forward = True
+        id_col = 'base_id'
 
     if index is None:
         cursor.execute("""
@@ -510,28 +515,33 @@ select %%s, %%s, %%s, %%s, (
 ), %%s
 where exists (
     select 1
-    from %s
+    from node
     where
         time_removed is null
         and id=%%s
-        and ctx=%%s
+        -- NB this was removed b/c it seemed like suspenders and a belt
+        -- in a world where id is globally unique (and removing it enables 
+        -- insertion of undirected relationships where we can't determine the
+        -- base/rel_ctx b/c both sides pass forward=True)
+        -- and ctx=
 )
 returning 1
-""" % (id_col, id_tbl), (
+""" % id_col, (
         base_id, rel_id, ctx, forward,
         id, ctx, forward,
         flags,
-        id, id_ctx))
+        id))
 
     else:
         cursor.execute("""
 with eligible as (
     select 1
-    from %s
+    from node
     where
         time_removed is null
         and id=%%s
-        and ctx=%%s
+        -- NB see above
+        -- and ctx=%%s
 ), bump as (
     update relationship
     set pos=pos + 1
@@ -547,7 +557,7 @@ insert into relationship (base_id, rel_id, ctx, forward, pos, flags)
 select %%s, %%s, %%s, %%s, %%s, %%s
 where exists (select 1 from eligible)
 returning 1
-""" % (id_tbl, id_col), (id, id_ctx,
+""" % id_col, (id, id_ctx,
             forward, id, ctx, index,
             base_id, rel_id, ctx, forward, index, flags))
 
@@ -588,7 +598,9 @@ limit %%s
         for other_id, flags, pos in cursor.fetchall()]
 
 
+@util.reorder_args_for_undirected_rels
 def remove_relationship(cursor, base_id, rel_id, ctx, forward):
+    # TODO remove undirected rels (and other cases)
     if forward:
         anchor_id = base_id
         anchor_col = "base_id"

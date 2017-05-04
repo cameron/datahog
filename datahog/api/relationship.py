@@ -14,6 +14,16 @@ def create(pool, ctx, base_id, rel_id, forward_index=None, reverse_index=None,
         flags=None, timeout=None):
     '''make a new relationship between two id objects
 
+    NB: There are some hacks afoot. In order to support undirected relationships
+    w/o going to four rows per edge (two each per direction), which would 
+    further complicate the notion of order, undirected relationships are written
+    as if they were always forward, with base_id being the subject, and rel_id
+    being the object. For now, this means that properly decoding a node ctx
+    across such a relation requires comparing the subject's ctx to the
+    relation's base_/rel_ctxs, and picking the one that doesn't match (of
+    course, if they're the same, it doesn't matter). This takes place in
+    query.py and txn.py.
+
     :param ConnectionPool pool:
         a :class:`ConnectionPool <datahog.dbconn.ConnectionPool>` to use for
         getting a database connection

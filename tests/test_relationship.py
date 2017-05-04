@@ -853,6 +853,8 @@ select 1 from removal
             ROLLBACK,
             TPC_ROLLBACK])
 
+# TODO
+# - undirected relationships
 
 if __name__ == '__main__':
     unittest.main()

@@ -4,7 +4,7 @@ from __future__ import absolute_import
 
 import mummy
 import psycopg2
-
+from functools import wraps
 from . import context, flag, storage, table
 from .. import error
 
@@ -73,6 +73,10 @@ def ctx_schema(ctx):
     meta = context.META.get(ctx)
     return meta and meta[1].get('schema')
 
+
+def ctx_directed(ctx):
+    "return the directed bool for a context"
+    return context.META[ctx][1].get('directed', True)
 
 def ctx_search(ctx):
     "return the search class for a context (if present)"
@@ -157,6 +161,18 @@ def storage_wrap(ctx, value):
 
 
     raise error.BadContext(ctx)
+
+
+def reorder_args_for_undirected_rels(f):
+    @wraps(f)
+    def wrapped(cursor, base_id, rel_id, ctx, forward, *args):
+        directed = ctx_directed(ctx)
+        if not directed and not forward:
+            base_id, rel_id = rel_id, base_id
+            forward = True
+            print 'swapping for undirected rel' 
+        return f(cursor, base_id, rel_id, ctx, forward, *args)
+    return wrapped
 
 
 _Binary = type(psycopg2.Binary(''))
