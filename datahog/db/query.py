@@ -485,7 +485,7 @@ returning value, ctx
     return cursor.fetchall()
 
 
-def insert_relationship(cursor, base_id, rel_id, ctx, forward, index, flags):
+def insert_relationship(cursor, base_id, rel_id, ctx, value, forward, index, flags):
     if forward:
         id_tbl, id_ctx = util.ctx_base(ctx)
         id = base_id
@@ -503,8 +503,8 @@ def insert_relationship(cursor, base_id, rel_id, ctx, forward, index, flags):
 
     if index is None:
         cursor.execute("""
-insert into relationship (base_id, rel_id, ctx, forward, pos, flags)
-select %%s, %%s, %%s, %%s, (
+insert into relationship (base_id, rel_id, ctx, value, forward, pos, flags)
+select %%s, %%s, %%s, %%s, %%s, (
     select count(*)
     from relationship
     where
@@ -527,7 +527,7 @@ where exists (
 )
 returning 1
 """ % id_col, (
-        base_id, rel_id, ctx, forward,
+        base_id, rel_id, ctx, value, forward,
         id, ctx, forward,
         flags,
         id))
@@ -553,13 +553,13 @@ with eligible as (
         and ctx=%%s
         and pos >= %%s
 )
-insert into relationship (base_id, rel_id, ctx, forward, pos, flags)
-select %%s, %%s, %%s, %%s, %%s, %%s
+insert into relationship (base_id, rel_id, ctx, value, forward, pos, flags)
+select %%s, %%s, %%s, %%s, %%s, %%s, %%s
 where exists (select 1 from eligible)
 returning 1
 """ % id_col, (id, id_ctx,
             forward, id, ctx, index,
-            base_id, rel_id, ctx, forward, index, flags))
+            base_id, rel_id, ctx, value, forward, index, flags))
 
     return cursor.rowcount
 
@@ -576,7 +576,7 @@ def select_relationships(cursor, id, ctx, forward, limit, start, other_id=_missi
         params = (id, ctx, forward, start, other_id, limit)
 
     cursor.execute("""
-select %s, flags, pos
+select %s, value, flags, pos
 from relationship
 where
     time_removed is null
@@ -590,23 +590,53 @@ limit %%s
 """ % (other_name, here_name, clause), params)
 
     return [{
-            here_name: id,
-            'flags': flags,
-            other_name: other_id,
-            'ctx': ctx,
-            'pos': pos}
-        for other_id, flags, pos in cursor.fetchall()]
+        here_name: id,
+        'flags': flags,
+        other_name: other_id,
+        'ctx': ctx,
+        'value': value,
+        'pos': pos}
+            for other_id, value, flags, pos in cursor.fetchall()]
 
 
-@util.reorder_args_for_undirected_rels
+def update_relationship(cursor, base_id, rel_id, ctx, value, old_value, forward):
+    if old_value is _missing:
+        oldval_where = ""
+        params = (value, base_id, rel_id, ctx, forward)
+    else:
+        oldval_where = 'and value=%%s' 
+        params = (value, base_id, rel_id, ctx, forward, old_value)
+
+    cursor.execute("""
+update relationship
+set value=%%s
+where
+    time_removed is null
+    and base_id=%%s
+    and rel_id=%%s
+    and ctx=%%s
+    and forward=%%s
+    %s
+""" % oldval_where, params)
+
+    return bool(cursor.rowcount)
+
+
 def remove_relationship(cursor, base_id, rel_id, ctx, forward):
-    # TODO remove undirected rels (and other cases)
+
     if forward:
         anchor_id = base_id
         anchor_col = "base_id"
     else:
         anchor_id = rel_id
         anchor_col = "rel_id"
+
+    # TODO write a test for add/removing undirected relations
+    directed = util.ctx_directed(ctx) 
+    if not directed and not forward:
+        base_id, rel_id = rel_id, base_id
+        anchor_col = 'base_id'
+        forward = True
 
     cursor.execute("""
 with removal as (
@@ -931,7 +961,7 @@ limit %s
     return cursor.fetchall()
 
 
-def update_node(cursor, nid, ctx, value, old_value=_missing):
+def update_node(cursor, nid, ctx, value, old_value):
     int_storage = util.ctx_storage(ctx) == storage.INT
     if int_storage:
         val_field = 'num'

@@ -62,6 +62,7 @@ create table relationship (
   ctx smallint not null,
   pos int not null,
   forward bool not null
+  value bytea default null,
 );
 
 create unique index relationship_uniq_forward on relationship (

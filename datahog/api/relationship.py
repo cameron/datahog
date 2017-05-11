@@ -10,7 +10,7 @@ from ..db import query, txn
 __all__ = ['create', 'list', 'get', 'set_flags', 'shift', 'remove']
 
 
-def create(pool, ctx, base_id, rel_id, forward_index=None, reverse_index=None,
+def create(pool, ctx, base_id, rel_id, value=None, forward_index=None, reverse_index=None,
         flags=None, timeout=None):
     '''make a new relationship between two id objects
 
@@ -33,6 +33,10 @@ def create(pool, ctx, base_id, rel_id, forward_index=None, reverse_index=None,
     :param int base_id: the id of the first related object
 
     :param int rel_id: the id of the other related object
+
+    :param value:
+        the value for the relationship. depending on the ``ctx``'s configuration,
+        this might be different types. see `storage types`_ for more on that.
 
     :param int forward_index:
         insert the new forward relationship into position ``index`` for the
@@ -79,8 +83,9 @@ def create(pool, ctx, base_id, rel_id, forward_index=None, reverse_index=None,
         raise error.BadContext(ctx)
 
     flags = util.flags_to_int(ctx, flags or [])
+    value = util.storage_wrap(ctx, value)
 
-    return txn.create_relationship_pair(pool, base_id, rel_id, ctx,
+    return txn.create_relationship_pair(pool, base_id, rel_id, ctx, value
             forward_index, reverse_index, flags, timeout)
 
 
@@ -121,6 +126,7 @@ def list(pool, id, ctx, forward=True, limit=100, start=0, timeout=None):
     pos = 0
     for result in results:
         result['flags'] = util.int_to_flags(ctx, result['flags'])
+        result['value'] = util.storage_unwrap(ctx, result['value'])
         pos = result.pop('pos') + 1
 
     return results, pos
@@ -154,9 +160,58 @@ def get(pool, ctx, base_id, rel_id, timeout=None):
     rel = rels[0] if rels else None
     if rel:
         rel['flags'] = util.int_to_flags(ctx, rel['flags'])
+        rel['value'] = util.storage_unwrap(ctx, rel['value'])
         rel.pop('pos')
 
     return rel
+
+
+def update(pool, base_id, rel_id, ctx, value, old_value=_missing, timeout=None):
+    '''overwrite the value stored in a relationship
+
+    :param ConnectionPool pool:
+        a :class:`ConnectionPool <datahog.dbconn.ConnectionPool>` to use for
+        getting a database connection
+
+    :param int base_id: id of the first node
+
+    :param int rel_id: id of the second
+
+    :param int ctx: the relationships's context
+
+    :param value: the new value to set on the node
+
+    :param old_value:
+        if provided, only do the update if this is the current value
+
+    :param timeout:
+        maximum time in seconds that the method is allowed to take; the default
+        of ``None`` means no limit
+
+    :returns:
+        a bool of whether the update happened. reasons that it might not are
+        that the relationship doesn't exist at all, or ``old_value`` was provided but
+        the relationship has a different value
+
+    :raises ReadOnly: if given a read-only pool
+
+    :raises BadContext:
+        if ``ctx`` isn't a registered context for ``table.RELATIONSHIP``, or
+        doesn't have both a ``base_ctx`` and ``storage`` configured
+    '''
+    if pool.readonly:
+        raise error.ReadOnly()
+
+    if (util.ctx_tbl(ctx) != table.RELATIONSHIP or util.ctx_storage(ctx) is None):
+        raise error.BadContext(ctx)
+
+    value = util.storage_wrap(ctx, value)
+
+    # TODO test update with _missing and without
+    if old_value is _missing:
+        old_value = util.storage_wrap(ctx, old_value)
+
+    return txn.update_relationship(conn.cursor(), node_id, ctx, value, old_value)
 
 
 def set_flags(pool, base_id, rel_id, ctx, add, clear, timeout=None):

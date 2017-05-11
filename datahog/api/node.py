@@ -333,12 +333,10 @@ def update(pool, node_id, ctx, value, old_value=_missing, timeout=None):
     value = util.storage_wrap(ctx, value)
 
     with pool.get_by_id(node_id, timeout=timeout) as conn:
-        if old_value is _missing:
-            return query.update_node(conn.cursor(), node_id, ctx, value)
-        else:
+        if old_value is not _missing:
             old_value = util.storage_wrap(ctx, old_value)
-            return query.update_node(
-                    conn.cursor(), node_id, ctx, value, old_value)
+        return query.update_node(
+            conn.cursor(), node_id, ctx, value, old_value)
 
 
 def increment(pool, node_id, ctx, by=1, limit=None, timeout=None):

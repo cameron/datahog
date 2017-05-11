@@ -388,26 +388,26 @@ def _remove_alias(pool, base_id, ctx, alias, timer):
     return True
 
 
-def create_relationship_pair(pool, base_id, rel_id, ctx, forw_idx, rev_idx,
-        flags, timeout):
+def create_relationship_pair(
+        pool, base_id, rel_id, ctx, value, forw_idx, rev_idx, flags, timeout):
     timer = Timer(pool, timeout, None)
     if timeout is None:
         return _create_relationship_pair(
-                pool, base_id, rel_id, ctx, forw_idx, rev_idx, flags, timer)
+            pool, base_id, rel_id, ctx, value, forw_idx, rev_idx, flags, timer)
     with timer:
         return _create_relationship_pair(
-                pool, base_id, rel_id, ctx, forw_idx, rev_idx, flags, timer)
+            pool, base_id, rel_id, ctx, value, forw_idx, rev_idx, flags, timer)
 
-def _create_relationship_pair(pool, base_id, rel_id, ctx, forw_idx, rev_idx,
-        flags, timer):
+def _create_relationship_pair(
+        pool, base_id, rel_id, ctx, value, forw_idx, rev_idx, flags, timer):
     tpc = TwoPhaseCommit(pool, pool.shard_by_id(base_id),
             'create_relationship_pair', (base_id, rel_id, ctx))
     try:
         with tpc as conn:
             timer.conn = conn
             try:
-                inserted = query.insert_relationship(conn.cursor(), base_id,
-                        rel_id, ctx, True, forw_idx, flags)
+                inserted = query.insert_relationship(
+                    conn.cursor(), base_id, rel_id, ctx, value, True, forw_idx, flags)
             finally:
                 timer.conn = None
 
@@ -430,8 +430,8 @@ def _create_relationship_pair(pool, base_id, rel_id, ctx, forw_idx, rev_idx,
             with pool.get_by_id(rel_id) as conn:
                 timer.conn = conn
                 try:
-                    inserted = query.insert_relationship(conn.cursor(),
-                            base_id, rel_id, ctx, False, rev_idx, flags)
+                    inserted = query.insert_relationship(
+                        conn.cursor(), base_id, rel_id, ctx, value, False, rev_idx, flags)
                 finally:
                     timer.conn = None
 
@@ -445,6 +445,63 @@ def _create_relationship_pair(pool, base_id, rel_id, ctx, forw_idx, rev_idx,
 
     except psycopg2.IntegrityError:
         return False
+
+    return True
+
+
+def update_relationship(pool, base_id, rel_id, ctx, value, old_value, timeout):
+    timer = Timer(pool, timeout, None)
+    if timeout is None:
+        return _update_relationship(
+                pool, base_id, rel_id, ctx, value, old_value, timer)
+    with timer:
+        return _update_relationship(
+                pool, base_id, rel_id, ctx, value, old_value, timer)
+
+
+def _update_relationship(pool, base_id, rel_id, ctx, value, old_value, timer):
+    tpc = TwoPhaseCommit(pool, pool.shard_by_id(base_id),
+            'update_relationship', (base_id, rel_id, ctx, value, old_value))
+
+    # hacks for undirected rels
+    directed = util.ctx_directed(ctx)
+
+    try:
+        with tpc as conn:
+            timer.conn = conn
+            try:
+                result = query.update_relationship(
+                    conn.cursor(), base_id, rel_id, ctx, value, old_value, forward)
+            finally:
+                timer.conn = None
+
+            if not result:
+                tpc.fail()
+                return None
+
+    finally:
+        pool.put(conn)
+
+    result_value = result[0]
+
+    with tpc.elsewhere():
+        with pool.get_by_id(rel_id) as conn:
+            timer.conn = conn
+            try:
+                ids = (base_id, rel_id)
+                forward = False 
+                if not directed:
+                    ids = (rel_id, base_id)
+                    forward = True
+                result = query.update_relationship(
+                        conn.cursor(), ids[0], ids[1], ctx, value, old_value, forward)
+            finally:
+                timer.conn = None
+
+            if not result or result[0] != result_value:
+                conn.rollback()
+                tpc.fail()
+                return None
 
     return True
 

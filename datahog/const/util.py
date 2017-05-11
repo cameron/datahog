@@ -163,18 +163,6 @@ def storage_wrap(ctx, value):
     raise error.BadContext(ctx)
 
 
-def reorder_args_for_undirected_rels(f):
-    @wraps(f)
-    def wrapped(cursor, base_id, rel_id, ctx, forward, *args):
-        directed = ctx_directed(ctx)
-        if not directed and not forward:
-            base_id, rel_id = rel_id, base_id
-            forward = True
-            print 'swapping for undirected rel' 
-        return f(cursor, base_id, rel_id, ctx, forward, *args)
-    return wrapped
-
-
 _Binary = type(psycopg2.Binary(''))
 
 
