@@ -9,12 +9,12 @@ from ..const import context, storage, table, util
 from ..db import query, txn
 
 
-__all__ = ['create', 'get', 'batch_get', 'child_of', 'list_children',
+__all__ = ['create', 'get', 'list', 'batch_get', 'child_of', 'list_children',
         'get_children', 'update', 'increment', 'set_flags', 'move',
         'shift', 'remove']
 
 
-_missing = object()
+_missing = util.missing
 
 
 def create(pool, ctx, value, base_id=None, index=None, flags=None, timeout=None):
@@ -124,6 +124,34 @@ def get(pool, node_id, ctx, timeout=None):
     node['value'] = util.storage_unwrap(ctx, node['value'])
 
     return node
+
+
+# TODO resume implementing list
+def list(pool, ctx, conn=None, limit=100, start=0, timeout=None):
+    ''' list the nodes of the given ctx 
+
+    :param ConnectionPool pool:
+        a :class:`ConnectionPool <datahog.dbconn.ConnectionPool>` to use for
+        getting a database connection
+
+    :param int ctx: the node's context
+
+    :param int limit: maximum number of nodes to return
+
+    :param int start:
+        an integer representing the index in the list of nodes from
+        which to start the results
+
+    :param timeout:
+        maximum time in seconds that the method is allowed to take; the default
+        of ``None`` means no limit
+
+    :returns:
+        a list of node dicts containing ``id``, ``ctx``, ``value`` and
+        ``flags`` keys. 
+    '''
+    # TODO this may necessitate a new index on ctx alone to make COUNT(*) efficient
+    # for paging purposes 
 
 
 def batch_get(pool, nid_ctx_pairs, timeout=None):

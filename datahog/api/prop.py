@@ -10,7 +10,7 @@ from ..db import query, txn
 __all__ = ['set', 'get', 'get_list', 'increment', 'set_flags', 'remove']
 
 
-_missing = object()
+_missing = util.missing
 
 
 def set(pool, base_id, ctx, value, flags=None, timeout=None):

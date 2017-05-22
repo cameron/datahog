@@ -8,6 +8,7 @@ from functools import wraps
 from . import context, flag, storage, table
 from .. import error
 
+missing = object() # default argument sentinel
 
 def ctx_tbl(ctx):
     "get the table a particular context is attached to"

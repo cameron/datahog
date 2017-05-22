@@ -7,7 +7,7 @@ import psycopg2
 from ..const import context, storage, table, util
 
 
-_missing = object() # default argument sentinel
+_missing = util.missing
 
 
 def select_property(cursor, base_id, ctx):

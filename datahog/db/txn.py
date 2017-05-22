@@ -449,19 +449,19 @@ def _create_relationship_pair(
     return True
 
 
-def update_relationship(pool, base_id, rel_id, ctx, value, old_value, timeout):
+def update_relationship(pool, base_id, rel_id, ctx, value, old_value, forward, timeout):
     timer = Timer(pool, timeout, None)
     if timeout is None:
         return _update_relationship(
-                pool, base_id, rel_id, ctx, value, old_value, timer)
+                pool, base_id, rel_id, ctx, value, old_value, forward, timer)
     with timer:
         return _update_relationship(
-                pool, base_id, rel_id, ctx, value, old_value, timer)
+                pool, base_id, rel_id, ctx, value, old_value, forward, timer)
 
 
-def _update_relationship(pool, base_id, rel_id, ctx, value, old_value, timer):
+def _update_relationship(pool, base_id, rel_id, ctx, value, old_value, forward, timer):
     tpc = TwoPhaseCommit(pool, pool.shard_by_id(base_id),
-            'update_relationship', (base_id, rel_id, ctx, value, old_value))
+            'update_relationship', (base_id, rel_id, ctx, value, old_value, forward))
 
     # hacks for undirected rels
     directed = util.ctx_directed(ctx)
@@ -482,7 +482,7 @@ def _update_relationship(pool, base_id, rel_id, ctx, value, old_value, timer):
     finally:
         pool.put(conn)
 
-    result_value = result[0]
+    first_result = result
 
     with tpc.elsewhere():
         with pool.get_by_id(rel_id) as conn:
@@ -498,7 +498,7 @@ def _update_relationship(pool, base_id, rel_id, ctx, value, old_value, timer):
             finally:
                 timer.conn = None
 
-            if not result or result[0] != result_value:
+            if not result or result != first_result:
                 conn.rollback()
                 tpc.fail()
                 return None

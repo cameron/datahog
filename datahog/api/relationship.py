@@ -9,6 +9,8 @@ from ..db import query, txn
 
 __all__ = ['create', 'list', 'get', 'set_flags', 'shift', 'remove']
 
+_missing = util.missing
+
 
 def create(pool, ctx, base_id, rel_id, value=None, forward_index=None, reverse_index=None,
         flags=None, timeout=None):
@@ -85,7 +87,7 @@ def create(pool, ctx, base_id, rel_id, value=None, forward_index=None, reverse_i
     flags = util.flags_to_int(ctx, flags or [])
     value = util.storage_wrap(ctx, value)
 
-    return txn.create_relationship_pair(pool, base_id, rel_id, ctx, value
+    return txn.create_relationship_pair(pool, base_id, rel_id, ctx, value,
             forward_index, reverse_index, flags, timeout)
 
 
@@ -166,7 +168,7 @@ def get(pool, ctx, base_id, rel_id, timeout=None):
     return rel
 
 
-def update(pool, base_id, rel_id, ctx, value, old_value=_missing, timeout=None):
+def update(pool, base_id, rel_id, ctx, value, old_value=_missing, forward=True, timeout=None):
     '''overwrite the value stored in a relationship
 
     :param ConnectionPool pool:
@@ -208,10 +210,10 @@ def update(pool, base_id, rel_id, ctx, value, old_value=_missing, timeout=None):
     value = util.storage_wrap(ctx, value)
 
     # TODO test update with _missing and without
-    if old_value is _missing:
+    if old_value is not _missing:
         old_value = util.storage_wrap(ctx, old_value)
 
-    return txn.update_relationship(conn.cursor(), node_id, ctx, value, old_value)
+    return txn.update_relationship(pool, base_id, rel_id, ctx, value, old_value, forward, timeout)
 
 
 def set_flags(pool, base_id, rel_id, ctx, add, clear, timeout=None):
