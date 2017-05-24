@@ -994,7 +994,7 @@ select 1 from removal
             'base_ctx': 1, 'storage': datahog.storage.STR
         })
 
-        self.assertRaises(error.StorageClassError, util.storage_wrap, 4, u'x')
+        self.assertRaises(error.StorageClassError, util.storage_wrap, 4, 'x')
         self.assertEqual(
                 util.storage_wrap(4, 'test').adapted,
                 'test')
@@ -1009,12 +1009,12 @@ select 1 from removal
 
         self.assertRaises(error.StorageClassError, util.storage_wrap, 5, 'no')
         self.assertEqual(
-                util.storage_wrap(5, u'testing').adapted,
-                u'testing'.encode('utf8'))
+                util.storage_wrap(5, 'testing').adapted,
+                'testing'.encode('utf8'))
 
         self.assertEqual(
                 util.storage_unwrap(5, psycopg2.Binary('testing')),
-                u'testing')
+                'testing')
 
     def test_storage_serial(self):
         datahog.set_context(6, datahog.NODE, {

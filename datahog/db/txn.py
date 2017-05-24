@@ -1,6 +1,6 @@
 # vim: fileencoding=utf8:et:sw=4:ts=8:sts=4
 
-from __future__ import absolute_import
+
 
 import contextlib
 import hashlib
@@ -70,7 +70,7 @@ class TwoPhaseCommit(object):
 
         xid = []
         for ud in self._uniq_data:
-            xid.append(str(ud).decode('utf8').encode('ascii', 'ignore'))
+            xid.append(str(ud))
         xid = conn.xid(random.randrange(1<<31), self._name, '-'.join(xid)[:64])
         self._xid = xid
         conn.tpc_begin(xid)
@@ -104,7 +104,7 @@ class TwoPhaseCommit(object):
             except Exception:
                 pass
 
-            raise exc, klass, tb
+            raise exc(klass).with_traceback(tb)
 
         else:
             if self._failed:
@@ -177,7 +177,8 @@ def set_alias(pool, base_id, ctx, alias, flags, index, timeout):
 def _set_alias(pool, base_id, ctx, alias, flags, index, timer):
     digest = hmac.new(pool.digestkey, alias.encode('utf8'),
             hashlib.sha1).digest()
-    digest_b64 = digest.encode('base64').strip()
+    import base64
+    digest_b64 = base64.b64encode(digest).strip()
 
     # look up pre-existing aliases on any but the current insert shard
     insert_shard = pool.shard_for_alias_write(digest)
@@ -402,6 +403,7 @@ def _create_relationship_pair(
         pool, base_id, rel_id, ctx, value, forw_idx, rev_idx, flags, timer):
     tpc = TwoPhaseCommit(pool, pool.shard_by_id(base_id),
             'create_relationship_pair', (base_id, rel_id, ctx))
+    conn = None
     try:
         with tpc as conn:
             timer.conn = conn
@@ -423,7 +425,8 @@ def _create_relationship_pair(
         return False
 
     finally:
-        pool.put(conn)
+        if conn:# TODO should conn ever be none? is tpc not working?
+            pool.put(conn)
 
     try:
         with tpc.elsewhere():
@@ -1358,7 +1361,7 @@ def _remove_node(pool, id, ctx, base_id, timer):
                 tpc.rollback()
             except Exception:
                 pass
-        raise klass, exc, tb
+        raise klass(exc).with_traceback(tb)
     else:
         for tpc in tpcs:
             tpc.commit()

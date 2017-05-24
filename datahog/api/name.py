@@ -1,6 +1,6 @@
 # vim: fileencoding=utf8:et:sw=4:ts=8:sts=4
 
-from __future__ import absolute_import
+
 
 from .. import error
 from ..const import search as searchconst, table, util

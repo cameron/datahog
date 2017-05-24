@@ -1,6 +1,6 @@
 # vim: fileencoding=utf8:et:sw=4:ts=8:sts=4
 
-from __future__ import absolute_import
+
 
 import mummy
 
@@ -89,8 +89,10 @@ def set_context(value, tbl, meta=None):
                     {'SCHEMA': meta['schema']})
 
         if meta.get('search') == search.PHONETIC:
-            # just so that this blows up nice and early
-            import fuzzy
+            raise Exception('''the Fuzzy library previously used to implement
+            phonetic search is not compatible with python3; if this feature is
+            necessary, take a look at replacing it with the 'phonetics' library,
+            instead''')
 
     META[value] = (tbl, meta)
 

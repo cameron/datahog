@@ -1,6 +1,6 @@
 # vim: fileencoding=utf8:et:sw=4:ts=8:sts=4
 
-from __future__ import absolute_import
+
 
 import hashlib
 import hmac
@@ -173,7 +173,7 @@ def batch(pool, bid_ctx_pairs, timeout=None):
         deadline = time.time() + timeout
 
     aliases = []
-    for shard, group in groups.iteritems():
+    for shard, group in groups.items():
         with pool.get_by_shard(shard, timeout=timeout) as conn:
             aliases.extend(query.select_alias_batch(conn.cursor(), group))
 

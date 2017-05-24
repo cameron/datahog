@@ -1,8 +1,9 @@
 # vim: fileencoding=utf8:et:sw=4:ts=8:sts=4
 
-from __future__ import absolute_import
 
-import mummy
+
+#import mummy
+import pickle
 import psycopg2
 from functools import wraps
 from . import context, flag, storage, table
@@ -120,8 +121,23 @@ def int_to_flags(ctx, flag_num):
     return flag_set
 
 
+import io
 def storage_wrap(ctx, value):
     st = ctx_storage(ctx)
+
+    if st == storage.INT:
+        if not isinstance(value, int):
+            raise error.StorageClassError("INT requires int or long")
+        return value
+
+    if value is None:
+        return None
+
+    bits = io.BytesIO()
+    pickle.dump(value, bits)
+    print('pickled', value)
+    return bits.read()
+
 
     if st == storage.NULL:
         if value is not None:
@@ -129,7 +145,7 @@ def storage_wrap(ctx, value):
         return None
 
     if st == storage.INT:
-        if not isinstance(value, (int, long)):
+        if not isinstance(value, int):
             raise error.StorageClassError("INT requires int or long")
         return value
 
@@ -139,7 +155,7 @@ def storage_wrap(ctx, value):
         return psycopg2.Binary(value)
 
     if st == storage.UTF:
-        if not isinstance(value, unicode):
+        if not isinstance(value, str):
             raise error.StorageClassError("UTF storage requires unicode")
         return psycopg2.Binary(value.encode("utf8"))
 
@@ -169,23 +185,40 @@ _Binary = type(psycopg2.Binary(''))
 
 def storage_unwrap(ctx, value):
     st = ctx_storage(ctx)
+
+    if st in (storage.STR, storage.UTF):
+        if not value:
+            return ''
+        
+    if st == storage.INT:
+        if not value:
+            return 0
+        return value
+
+    if not value:
+        return None
+    bits = io.BytesIO(value)
+    return pickle.loads(bits.read())
+ 
+    st = ctx_storage(ctx)
     if st is None:
         raise error.BadContext(ctx)
 
     if isinstance(value, _Binary):
         value = value.adapted
-    if isinstance(value, buffer):
+    if isinstance(value, memoryview): # TODO memoryview was buffer and i'm not sure how this will go
         value = str(value)
 
     if st == storage.UTF:
         value = value.decode("utf8")
 
-    if st == storage.SERIAL:
-        schema = ctx_schema(ctx)
-        if schema:
-            value = schema.loads(value).message
-        else:
-            value = mummy.loads(value)
+    if st == storage.SERIAL and value:
+        # schema = ctx_schema(ctx)
+        # if schema:
+        #     value = schema.loads(value).message
+        # else:
+        #     value = mummy.loads(value)
+        value = pickle.loads(value)
 
     return value
 

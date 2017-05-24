@@ -2,26 +2,15 @@
 
 import bisect
 import contextlib
-import Queue
+import queue
 import random
 import time
 
-try:
-    import greenhouse
-except ImportError:
-    greenhouse = None
-else:
-    import greenhouse.ext.psycopg2 as greenpsycopg2
-
-try:
-    import gevent
-except ImportError:
-    gevent = None
-else:
-    import gevent.core
-    import gevent.event
-    import gevent.queue
-    import gevent.socket
+import gevent
+import gevent.core
+import gevent.event
+import gevent.queue
+import gevent.socket
 
 import psycopg2
 import psycopg2.extensions
@@ -103,7 +92,7 @@ class ConnectionPool(object):
         self._init_conf()
 
         self.shardbits = self._dbconf['shard_bits']
-        self.digestkey = self._dbconf['digest_key']
+        self.digestkey = bytes(self._dbconf['digest_key'], 'utf-8')
 
         if 'connection_backoff' in self._dbconf:
             self.backoff = self._dbconf['connection_backoff']
@@ -138,7 +127,7 @@ class ConnectionPool(object):
         '''
         for shard in self._dbconf['shards']:
             self._conns[shard['shard']] = self._q()
-            for i in xrange(shard['count']):
+            for i in range(shard['count']):
                 ev = self._ev()
                 self._ready_evs.append(ev)
                 self._start_conn(shard, ev)
@@ -221,7 +210,7 @@ class ConnectionPool(object):
 
         try:
             conn = self._conns[shard].get(timeout)
-        except Queue.Empty:
+        except queue.Empty:
             raise error.Timeout()
 
         if timeout is not None:
@@ -247,7 +236,7 @@ class ConnectionPool(object):
         yield 0 # single immediate retry
         jitter = 0.25
         n = 10
-        for i in xrange(10):
+        for i in range(10):
             # grow by a random factor between 1.75 and 2.25
             n *= 2 + (jitter * (random.random() - 0.5))
             yield n
@@ -321,39 +310,8 @@ class PsycoConn(object):
         try:
             self.conn.__exit__(exc, *args)
         except psycopg2.InterfaceError as e:
-            print e.message
+            print(e.message)
         return self
-
-
-if greenhouse:
-    __all__.append("GreenhouseConnPool")
-
-    class GreenhouseConnPool(ConnectionPool):
-        '''a :class:`ConnectionPool` that uses greenhouse_ for blocking calls
-
-        .. _greenhouse: http://teepark.github.io/greenhouse
-        '''
-        @staticmethod
-        def _background(f):
-            greenhouse.schedule(f)
-
-        @staticmethod
-        def _q():
-            return greenhouse.Queue()
-
-        @staticmethod
-        def _ev():
-            return greenhouse.Event()
-
-        @staticmethod
-        def _pause(ms):
-            greenhouse.pause_for(ms / 1000.0)
-
-        def start(self):
-            psycopg2.extensions.set_wait_callback(greenpsycopg2.wait_callback)
-            super(GreenhouseConnPool, self).start()
-
-        _timer = greenhouse.Timer
 
 
 if gevent:
@@ -419,7 +377,7 @@ def _int_hash(digest):
     n = 0
     for c in digest:
         n <<= 8
-        n |= ord(c)
+        n |= c
     return n
 
 def _pick_from_plan(digest, plan, num=None):

@@ -1,10 +1,11 @@
 # vim: fileencoding=utf8:et:sw=4:ts=8:sts=4
 
-from __future__ import absolute_import
+
 
 import psycopg2
 
 from ..const import context, storage, table, util
+from functools import reduce
 
 
 _missing = util.missing
@@ -59,7 +60,7 @@ where
             'value': (
                 num if util.ctx_storage(ctx) == storage.INT else value),
         } for ctx, num, value, flags in cursor.fetchall()}
-    return map(results.get, ctxs)
+    return list(map(results.get, ctxs))
 
 
 def upsert_property(cursor, base_id, ctx, value, flags):
@@ -1474,7 +1475,7 @@ def set_flags(cursor, table, add, clear, where):
 
     w_clause, w_values = ['time_removed is null'], []
     s_clause, s_values = "", []
-    for key, val in where.items():
+    for key, val in list(where.items()):
         if val is None:
             w_clause.append('%s is null' % key)
         else:
